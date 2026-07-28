@@ -461,28 +461,67 @@ function buildDetail(s){
 /* ---- Scene strip (route scenery) ---- */
 const STRIP_W = 2400, STRIP_H = 250;
 function buildScene(s){
-  const r = ROUTES[s.rute];
-  let mountains='', seas='', base='';
-  base = `<rect x="0" y="0" width="${STRIP_W}" height="${STRIP_H}" fill="none"/>`;
-  r.segments.forEach(seg=>{
-    const x1 = seg.from/100*STRIP_W, x2 = seg.to/100*STRIP_W, w = x2-x1;
-    if(seg.type==='gunung'){
-      let peaks='';
-      const n = Math.max(2, Math.round(w/140));
-      for(let i=0;i<n;i++){
-        const px = x1 + (w/n)*i, pw = w/n;
-        peaks += `<polygon points="${px},170 ${px+pw*0.5},${60+Math.random()*20} ${px+pw},170" fill="#12283A" opacity="0.92"/>`;
-        peaks += `<polygon points="${px+pw*0.2},170 ${px+pw*0.5},${95+Math.random()*15} ${px+pw*0.8},170" fill="#0C1A2A"/>`;
-      }
-      mountains += `<g>${peaks}</g>`;
-    }
-    if(seg.type==='laut'){
-      seas += `<rect x="${x1}" y="176" width="${w}" height="74" fill="#123A50"/>
-        <rect x="${x1}" y="176" width="${w}" height="4" fill="#7FC4E8" opacity="0.55"/>`;
-    }
-  });
+  const isCoastal = s.rute === 'pesisir';
+  const skyTop = isCoastal ? '#112942' : '#18324a';
+  const skyMid = isCoastal ? '#468db8' : '#4b7f97';
+  const skyBottom = isCoastal ? '#7bc4cf' : '#9eb8c4';
+  const waterTop = isCoastal ? '#84c6dc' : '#5c8595';
+  const waterBottom = isCoastal ? '#103d4f' : '#213b49';
+
+  let mountainRange = '';
+  let ridgeRange = '';
+  for(let i=0;i<8;i++){
+    const x = i * 300 + (i % 2) * 35;
+    const h = 60 + (i % 3) * 26 + (isCoastal ? 8 : 18);
+   const baseY = 180 - h;
+    mountainRange += `<polygon points="${x},180 ${x + 140},${baseY} ${x + 280},180" fill="${i % 2 ? '#284555' : '#1e3140'}" opacity="0.96"/>`;
+  }
+  for(let i=0;i<6;i++){
+    const x = i * 380 + 70;
+    const h = 36 + (i % 4) * 10;
+    const baseY = 180 - h;
+    ridgeRange += `<polygon points="${x},180 ${x + 110},${baseY} ${x + 220},180" fill="${i % 2 ? '#2f4c5c' : '#233845'}" opacity="0.85"/>`;
+  }
+
+  let terrain = '';
+  for(let i=0;i<10;i++){
+    const x = i * 240;
+    const y = 168 + (i % 3) * 8;
+    terrain += `<ellipse cx="${x + 120}" cy="${y}" rx="110" ry="46" fill="${i % 2 ? '#314b54' : '#233844'}" opacity="0.74"/>`;
+  }
+
+  const waterPath = isCoastal
+    ? 'M0 172 C220 160 410 159 620 172 C830 184 1040 188 1240 176 C1460 162 1720 152 1940 162 C2140 171 2290 176 2400 170 L2400 250 L0 250 Z'
+    : 'M0 176 C260 162 470 164 690 176 C930 189 1160 190 1400 176 C1630 162 1980 158 2400 168 L2400 250 L0 250 Z';
+
   document.getElementById('layerStrip').setAttribute('viewBox', `0 0 ${STRIP_W} ${STRIP_H}`);
-  document.getElementById('layerStrip').innerHTML = base + mountains + seas;
+  document.getElementById('layerStrip').innerHTML = `
+    <defs>
+      <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="${skyTop}"/>
+        <stop offset="50%" stop-color="${skyMid}"/>
+        <stop offset="100%" stop-color="${skyBottom}"/>
+      </linearGradient>
+      <linearGradient id="waterGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="${waterTop}"/>
+        <stop offset="100%" stop-color="${waterBottom}"/>
+      </linearGradient>
+      <linearGradient id="mistGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.24"/>
+        <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <rect x="0" y="0" width="${STRIP_W}" height="${STRIP_H}" fill="url(#skyGrad)"/>
+    <path d="M0 126 C430 98 860 98 1210 126 C1520 148 1890 150 2400 110 L2400 180 L0 180 Z" fill="#ffffff" opacity="${0.08 + s.awan / 500}"/>
+    <path d="M0 130 C430 106 860 106 1210 132 C1520 154 1890 158 2400 120 L2400 170 L0 170 Z" fill="url(#mistGrad)" opacity="0.4"/>
+    <g opacity="0.95">${mountainRange}</g>
+    <g opacity="0.82">${ridgeRange}</g>
+    <g opacity="0.72">${terrain}</g>
+    <path d="${waterPath}" fill="url(#waterGrad)"/>
+    <path d="${waterPath}" fill="none" stroke="#dff8ff" stroke-opacity="0.22" stroke-width="2"/>
+    <path d="M0 182 C360 168 760 166 1120 180 C1440 192 1860 194 2400 176" fill="none" stroke="#cdebf4" stroke-opacity="0.22" stroke-width="1.4"/>
+    <rect x="0" y="171" width="${STRIP_W}" height="79" fill="#0e1f2b" opacity="0.42"/>
+  `;
 
   // fence foreground pattern
   let fence='';
@@ -551,6 +590,7 @@ function updateSceneFrame(s, progress){
   const alt = Math.sin(Math.PI*tt);
   const cy = 235 - alt*190;
   const sunOpacity = (hourFloat<5.3||hourFloat>18) ? 0.16 : 0.95;
+  const hazeOpacity = isNight ? 0.08 : isDusk ? 0.24 : isDawn ? 0.16 : 0.1;
   const cloudOffset = (progress/100)*120;
   const isNight = hourFloat < 6 || hourFloat > 18.3;
   const isDusk = hourFloat > 15 && hourFloat < 19;
@@ -594,6 +634,7 @@ function updateSceneFrame(s, progress){
     <ellipse cx="${cx}" cy="${Math.max(cy,20)}" rx="34" ry="24" fill="${sunColor}" opacity="${Math.max(0.18, sunOpacity)}" />
     <circle cx="${cx}" cy="${Math.max(cy,20)}" r="18" fill="${sunColor}" opacity="${sunOpacity}" />
     <ellipse cx="${cx}" cy="${Math.max(cy,20)}" rx="70" ry="42" fill="${horizonGlow}" opacity="0.6" />
+    <rect x="0" y="0" width="460" height="250" fill="#ffffff" opacity="${hazeOpacity}" />
     ${skyMarkup}
   `;
   cloudLayer.innerHTML = cloudMarkup;
