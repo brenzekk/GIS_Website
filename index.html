@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brand & Zka's - Scenic Route Planner (Light Version)</title>
+    <style>
+        /* --- RESET & GLOBAL STYLES --- */
+        :root {
+            --bg-color: #f7f9fc; /* Bright background */
+            --panel-bg: rgba(255, 255, 255, 0.95); /* Glassmorphism panel bg */
+            --accent-color: #58a6ff; /* Blue accent */
+            --text-primary: #333;
+            --text-secondary: #777;
+            --border-color: #e1e4e8;
+            --red-route: #ff4d4d;
+            --blue-route: #4da6ff;
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            --glass-blur: blur(10px);
+            --card-shadow: 0 8px 16px rgba(0,0,0,0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            font-size: 13px;
+        }
+
+        /* --- LAYOUT UTAMA --- */
+        .dashboard-container {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- FLOATING CARDS wadah (Top) --- */
+        .top-cards-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            z-index: 5;
+            pointer-events: none; /* Let clicks pass to map except for cards */
+        }
+
+        .floating-card {
+            background-color: var(--panel-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            padding: 16px;
+            pointer-events: auto; /* Re-enable pointer events for cards */
+        }
+
+        /* --- SMART ROUTE QUERY CARD (Top Left) --- */
+        .query-card {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .brand-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .brand-logo {
+            width: 24px;
+            height: 24px;
+            background-color: var(--accent-color);
+            border-radius: 6px;
+            /* Placeholder for 'Z' logo */
+        }
+
+        .brand-name {
+            font-weight: 600;
+            font-size: 15px;
+            color: black;
+        }
+
+        /* Query Assistant */
+        .query-section {
+            background-color: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            min-height: 80px;
+            position: relative;
+        }
+
+        .typing-sim {
+            color: black;
+            line-height: 1.4;
+        }
+
+        .send-icon {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            width: 16px;
+            height: 16px;
+            fill: var(--text-secondary);
+        }
+
+        /* Filters (Dynamic) */
+        .filters-group {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .filter-item {
+            background-color: white;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .filter-label {
+            color: var(--text-secondary);
+        }
+
+        .select-icon {
+            font-size: 9px;
+            color: var(--text-secondary);
+        }
+
+        /* Landmark Views (Multi-select) */
+        .landmark-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .landmark-card {
+            background-color: white;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .landmark-card:hover {
+            border-color: #ddd;
+        }
+
+        .landmark-card.active {
+            border-color: #34d058; /* Green border for Mountain */
+            background-color: rgba(52, 208, 88, 0.05);
+        }
+
+        .landmark-card.filtered {
+            opacity: 0.5;
+            border-color: var(--accent-color); /* Blue for visual reference in filtered */
+        }
+
+        .landmark-icon {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        .landmark-name {
+            font-weight: 600;
+        }
+
+        .landmark-status {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        /* --- SEAT & VIEW PREVIEW CARD (Top Right) --- */
+        .preview-card {
+            width: 45%;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .panel-title {
+            color: black;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        /* Train Interior simulasi */
+        .train-interior-graphic {
+            background-color: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .seat-row {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+        }
+
+        .seat-block {
+            width: 18px;
+            height: 18px;
+            background-color: #ddd;
+            border-radius: 3px;
+        }
+
+        .seat-block.active {
+            background-color: rgba(52, 208, 88, 0.3);
+            border: 1px solid #34d058;
+        }
+
+        /* Window Preview */
+        .window-preview {
+            width: 100%;
+            height: 80px;
+            background-color: #f7f9fc; /* Placeholder for window view */
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .window-mountain-graphic {
+            position: absolute;
+            top: 20%;
+            left: 20%;
+            width: 60%;
+            height: 60%;
+            border: 1px solid #ff4d4d;
+            border-radius: 50% 50% 0 0;
+            opacity: 0.5;
+        }
+
+        /* --- MAP CONTAINER (Main Area) --- */
+        .map-container {
+            flex: 1;
+            position: relative;
+            background-color: #f0f3f7; /* Slightly different to contrast */
+            /* Simulasi peta: menggunakan linear gradient untuk grid dan pulau kasar */
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(0,0,0,0.01) 1px, transparent 1px),
+                linear-gradient(rgba(0,0,0,0.01) 1px, transparent 1px), 
+                linear-gradient(90deg, rgba(0,0,0,0.01) 1px, transparent 1px);
+            background-size: 20px 20px, 100px 100px, 100px 100px;
+            background-position: center;
+            overflow: hidden;
+        }
+
+        /* Simulasi Rute */
+        .route-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        /* Landmark Points */
+        .map-poi {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .poi-icon {
+            width: 16px;
+            height: 16px;
+            fill: white;
+            border-radius: 50%;
+            padding: 3px;
+        }
+
+        .poi-name {
+            font-size: 11px;
+            white-space: nowrap;
+            text-shadow: 1px 1px 2px #fff; /* white shadow for poi on map */
+        }
+
+        /* Spesifik POI */
+        .poi-semeru { top: 60%; left: 45%; }
+        .poi-semeru .poi-icon { background-color: var(--red-route); }
+
+        .poi-bromo { top: 65%; left: 52%; }
+        .poi-bromo .poi-icon { background-color: var(--red-route); }
+
+        /* Route Label */
+        .route-label {
+            position: absolute;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        /* Train Cursor */
+        .train-cursor {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            fill: var(--accent-color);
+            background: white;
+            border-radius: 50%;
+            padding: 3px;
+            border: 2px solid var(--accent-color);
+            z-index: 3;
+            transform: translate(-50%, -50%);
+        }
+
+        /* --- BOTTOM HORIZONTAL GRID CONTAINER --- */
+        .bottom-grid-container {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr) 2fr;
+            gap: 20px;
+            z-index: 5;
+            pointer-events: none; /* Let clicks pass to map except for cards */
+        }
+
+        /* --- TOP TICKET RECOMMENDATIONS (Horizontal Grid) --- */
+        .ticket-card {
+            background-color: var(--panel-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            padding: 12px;
+            pointer-events: auto; /* Re-enable pointer events */
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .ticket-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background-color: white;
+            border-radius: 6px;
+        }
+
+        .ticket-time {
+            font-weight: 700;
+            color: black;
+            font-size: 14px;
+        }
+
+        .ticket-score {
+            font-weight: 600;
+            color: var(--accent-color);
+        }
+
+        .cloud-sparkline-sim {
+            width: 60px;
+            height: 15px;
+            /* Placeholder cloud line sim */
+            border-bottom: 2px solid var(--blue-route);
+        }
+
+        /* --- VIEWSHED HUD (Bottom Center Grid Item) --- */
+        .viewshed-panel {
+            grid-column: 5; /* Occupy last grid column */
+            background-color: var(--panel-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            padding: 12px;
+            pointer-events: auto; /* Re-enable pointer events */
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .viewshed-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .viewshed-graph {
+            width: 100%;
+            height: 80px;
+            background-color: white;
+            border-radius: 8px;
+            position: relative;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Legend */
+        .viewshed-legend {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .legend-color {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        /* Map Controls (Bottom Right) */
+        .map-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 4;
+        }
+
+        .control-btn {
+            width: 30px;
+            height: 30px;
+            background-color: var(--panel-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-color);
+            color: black;
+            border-radius: 6px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        /* --- ANNOTATION STYLE (For Visual Reference like in Image) --- */
+        .annotation {
+            color: var(--text-secondary);
+            font-size: 11px;
+            line-height: 1.3;
+        }
+        
+        /* Helper lines simulator */
+        .helper-line {
+            position: absolute;
+            background-color: var(--text-secondary);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-container">
+        
+        <!-- --- FLOATING CARDS (Top) --- -->
+        <header class="top-cards-container">
+            
+            <!-- --- SMART ROUTE QUERY CARD (Top Left) --- -->
+            <div class="floating-card query-card annotation">
+                <header class="brand-header">
+                    <div class="brand-logo"></div>
+                    <h1 class="brand-name">Brand & Zka's</h1>
+                </header>
+
+                <!-- Query Assistant Section -->
+                <div class="section-header annotation">
+                    <span>Query Assistant</span>
+                    <span>•••</span>
+                </div>
+                <div class="query-section">
+                    <p class="typing-sim annotation">Malang next month, show me the clearest morning mountain view ticket.</p>
+                    <svg class="send-icon" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+                </div>
+
+                <!-- Dynamic Filters Section -->
+                <div class="section-header annotation">
+                    <span>Dynamic Filters</span>
+                    <span>⌃</span>
+                </div>
+                <div class="filters-group">
+                    <div class="filter-item">
+                        <span class="filter-label">Date</span>
+                        <span class="select-icon">▼</span>
+                    </div>
+                    <div class="filter-item">
+                        <span class="filter-label">Time</span>
+                        <span class="select-icon">▼</span>
+                    </div>
+                    <div class="filter-item">
+                        <span class="filter-label">Train Type</span>
+                        <span class="select-icon">▼</span>
+                    </div>
+                    <div class="filter-item">
+                        <span class="filter-label">Mountain</span>
+                        <span class="select-icon">▼</span>
+                    </div>
+                </div>
+
+                <!-- Landmark Views Section -->
+                <div class="section-header annotation">
+                    <span>Landmark Views</span>
+                    <span>Multi-select</span>
+                </div>
+                <div class="landmark-options">
+                    <!-- Sea Card -->
+                    <div class="landmark-card filtered annotation">
+                        <!-- Wave Icon -->
+                        <svg class="landmark-icon" viewBox="0 0 24 24"><path d="M12 18c-4.42 0-8-1.79-8-4 0-1.56 1.78-2.9 4.39-3.57.19.46.42.92.68 1.36-1.99.37-3.07 1.1-3.07 2.21 0 1.29 2.72 3 6 3s6-1.71 6-3c0-.85-.94-1.57-2.31-2-.1-.58-.25-1.15-.46-1.7 1.63.38 2.77 1.05 2.77 1.7 0 2.21-3.58 4-8 4zm0-6c-1.33 0-2.61-.31-3.7-.85C7.21 10.6 6 9.4 6 8s1.21-2.6 2.3-3.15C9.39 4.31 10.67 4 12 4s2.61.31 3.7.85C16.79 5.4 18 6.6 18 8s-1.21 2.6-2.3 3.15C14.61 11.69 13.33 12 12 12zm0-6c-.85 0-1.57.94-1.57 1.57s.72 1.57 1.57 1.57 1.57-.94 1.57-1.57S12.85 6 12 6z"></path></svg>
+                        <span class="landmark-name">Sea</span>
+                        <span class="landmark-status">(Visualizing, filtered)</span>
+                    </div>
+                    <!-- Mountain Card (Active) -->
+                    <div class="landmark-card active annotation">
+                        <!-- Mountain Icon -->
+                        <svg class="landmark-icon" viewBox="0 0 24 24"><path d="M14 6l-3.75 5 2.85 3.8-1.6 1.2C9.81 13.75 7 10 7 10l-6 8h22L14 6z"></path></svg>
+                        <span class="landmark-name">Mountain</span>
+                        <span class="landmark-status">(Active, visualizing)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- --- SEAT & VIEW PREVIEW CARD (Top Right) --- -->
+            <div class="floating-card preview-card annotation">
+                <header class="rec-header">
+                    <span class="panel-title">SEAT & VIEW PREVIEW</span>
+                    <svg class="close-icon" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+                </header>
+
+                <div class="rec-content">
+                    <!-- Seat Map View -->
+                    <div class="seat-view-section">
+                        <div class="side-label">LEFT SIDE</div>
+                        <div class="train-interior-graphic">
+                            <div class="seat-row">
+                                <div class="seat-block"></div><div class="seat-block"></div><div class="seat-block active"></div><div class="seat-block active"></div><div class="seat-block active"></div><div class="seat-block active"></div><div class="seat-block active"></div><div class="seat-block active"></div>
+                            </div>
+                            <div class="seat-row" style="margin-top: 2px; font-size:9px; color:#555;">
+                                <span>A14</span><span>A15</span><span>A16</span><span>A17</span><span>A18</span>
+                            </div>
+                        </div>
+                        <div class="annotation" style="margin-top: 5px;">Recommended seats (for mountain view)</div>
+                        
+                        <div class="window-preview">
+                            <div class="window-mountain-graphic"></div>
+                        </div>
+                        <div class="annotation" style="margin-top: 5px;">3D preview view through the window. Updating with smooth animations.</div>
+                    </div>
+                </div>
+            </div>
+
+        </header>
+
+        <!-- --- MAP CONTAINER --- -->
+        <main class="map-container">
+            <!-- Simulated rough shapes for East Java island -->
+            <div style="position:absolute; top:20%; left:10%; width:80%; height:60%; background:#e6ecf2; border-radius: 50% 30% 60% 40%; opacity: 0.5; filter: blur(10px);"></div>
+
+            <!-- Rough drawing of color-coded routes with SVG -->
+            <svg class="route-svg" viewBox="0 0 1000 1000">
+                <!-- Red route -->
+                <path d="M100 200 L 200 250 L 300 280 L 450 350 L 520 400 L 600 480" stroke="#ff4d4d" stroke-width="4" fill="none" opacity="0.8"/>
+                <!-- Blue route -->
+                <path d="M600 480 L 680 500 L 750 510 L 850 515 L 950 515" stroke="#4da6ff" stroke-width="4" fill="none" opacity="0.8"/>
+            </svg>
+
+            <!-- Landmark POIs -->
+            <div class="map-poi poi-semeru annotation">
+                <svg class="poi-icon" viewBox="0 0 24 24"><path d="M14 6l-3.75 5 2.85 3.8-1.6 1.2C9.81 13.75 7 10 7 10l-6 8h22L14 6z"></path></svg>
+                <span class="poi-name">Mount Semeru</span>
+            </div>
+            <div class="map-poi poi-bromo annotation">
+                <svg class="poi-icon" viewBox="0 0 24 24"><path d="M14 6l-3.75 5 2.85 3.8-1.6 1.2C9.81 13.75 7 10 7 10l-6 8h22L14 6z"></path></svg>
+                <span class="poi-name">Bromo</span>
+            </div>
+
+            <!-- Route Labels -->
+            <div class="route-label annotation" style="top:320px; left:460px; color:var(--red-route);">RED</div>
+            <div class="route-label annotation" style="top:485px; left:780px; color:var(--blue-route);">BLUE</div>
+
+            <!-- Train Cursor simulation -->
+            <svg class="train-cursor" viewBox="0 0 24 24" style="top: 350px; left: 450px;">
+                <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path>
+            </svg>
+
+            <!-- Map Annotation Text Simulations -->
+            <div class="annotation" style="position:absolute; top:280px; left:350px; width:150px;">Animated color-coded routing RED: Mountain View</div>
+            <div class="annotation" style="position:absolute; top:420px; left:730px; width:150px;">Animated color-cod routing of sea View, animated POI</div>
+
+            <!-- Map Controls (Bottom Right) -->
+            <div class="map-controls">
+                <button class="control-btn">+</button>
+                <button class="control-btn">−</button>
+            </div>
+            
+            <!-- Basemap Credit -->
+            <div class="annotation" style="position:absolute; bottom:5px; right:5px; font-size:10px; opacity:0.5;">© MAPID baseline map of East Java</div>
+
+        </main>
+
+        <!-- --- BOTTOM HORIZONTAL GRID GRID --- -->
+        <footer class="bottom-grid-container">
+            
+            <!-- --- TOP TICKET RECOMMENDATIONS (Horizontal Cards) --- -->
+            <div class="ticket-card annotation">
+                <div class="ticket-item">
+                    <span class="ticket-time">TICKET 1: 06:30</span>
+                    <span class="ticket-score">(WOW Score: 9.8)</span>
+                    <div class="cloud-sparkline-sim"></div>
+                </div>
+                <div class="ticket-item filtered">
+                    <span class="ticket-time">TICKET 2: 07:45</span>
+                    <span class="ticket-score">(WOW Score: 9.5)</span>
+                    <div class="cloud-sparkline-sim"></div>
+                </div>
+            </div>
+
+            <div class="ticket-card annotation">
+                <div class="ticket-item">
+                    <span class="ticket-time">TICKET 3: 08:00</span>
+                    <span class="ticket-score">(WOW Score: 9.8)</span>
+                    <div class="cloud-sparkline-sim"></div>
+                </div>
+                <div class="ticket-item filtered">
+                    <span class="ticket-time">TICKET 4: 10:15</span>
+                    <span class="ticket-score">(WOW Score: 9.5)</span>
+                    <div class="cloud-sparkline-sim"></div>
+                </div>
+            </div>
+
+            <!-- Additional dummy ticket cards to fill space -->
+            <div class="ticket-card annotationFiltered"></div>
+            <div class="ticket-card annotationFiltered"></div>
+
+            <!-- --- VIEWSHED HUD (Bottom Center Grid Item) --- -->
+            <div class="viewshed-panel annotation">
+                <header class="viewshed-header">
+                    <span class="panel-title" style="color:black; text-transform:uppercase;">Viewshed HUD</span>
+                    <span style="font-size:11px;">Anotasi real-time seiring pergerakan kursor</span>
+                </header>
+                <div class="viewshed-graph">
+                    <!-- Rough drawing of red elevation peak -->
+                    <div style="position:absolute; bottom:0; left:10%; width:80%; height:70%; border:1px solid var(--red-route); border-radius:50% 50% 0 0; opacity:0.6;"></div>
+                </div>
+                <div class="viewshed-axis annotation" style="display:flex; justify-content:space-between; margin-top:4px;">
+                    <span>08:00</span><span>09:00</span><span>12:00</span><span>15:00</span><span>20:00</span><span>23:00</span><span>00:00</span>
+                </div>
+
+                <!-- Legenda Rute Warna -->
+                <div class="viewshed-legend annotation" style="margin-top: 8px;">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: var(--red-route);"></div>
+                        <span>Mountain View</span>
+                    </div>
+                    <div class="legend-itemFiltered">
+                        <div class="legend-color" style="background-color: var(--blue-route);"></div>
+                        <span>Sea View</span>
+                    </div>
+                </div>
+            </div>
+
+        </footer>
+
+    </div>
+
+</body>
+</html>
